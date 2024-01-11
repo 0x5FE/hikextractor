@@ -108,37 +108,37 @@ def find_in_bytes(buff: bytes, what: bytes, start, size=1024 * 1024):
 
 
 def parse_master_block(mappedfile) -> MasterBlock:
-    master = mappedfile[0x200:0x360]
-    signature = bytes(master[0x10:0x22])
-    if signature != SIGNATURE:
-        raise Exception("Wrong master block signature")
-    version = bytes(master[0x30:0x3E])
-    capacity = to_uint64(master, 0x48)
-    offset_system_logs = to_uint64(master, 0x60)
-    size_system_logs = to_uint64(master, 0x68)
-    offset_video_area = to_uint64(master, 0x78)
-    size_data_block = to_uint64(master, 0x88)
-    total_data_blocks = to_uint32(master, 0x90)
-    offset_hibtree1 = to_uint64(master, 0x98)
-    size_hibtree1 = to_uint32(master, 0xA0)
-    offset_hibtree2 = to_uint64(master, 0xA8)
-    size_hibtree2 = to_uint32(master, 0xB0)
-    time_system_init = to_datetime(master, 0xF0)
-    return MasterBlock(
-        signature=signature,
-        capacity=capacity,
-        version=version,
-        offset_system_logs=offset_system_logs,
-        size_system_logs=size_system_logs,
-        offset_video_area=offset_video_area,
-        size_data_block=size_data_block,
-        total_data_blocks=total_data_blocks,
-        offset_hibtree1=offset_hibtree1,
-        size_hibtree1=size_hibtree1,
-        offset_hibtree2=offset_hibtree2,
-        size_hibtree2=size_hibtree2,
-        time_system_init=time_system_init,
-    )
+    
+    MASTER_BLOCK_OFFSET = 0x200
+    MASTER_BLOCK_SIZE = 0x160
+
+    master_block_data = mappedfile[MASTER_BLOCK_OFFSET:MASTER_BLOCK_OFFSET + MASTER_BLOCK_SIZE]
+
+    try:
+        signature = struct.unpack_from("<18s", master_block_data, 0x10)[0]
+        if signature != SIGNATURE:
+            raise ValueError("Invalid master block signature")
+
+        fields = (
+            ("signature", signature),
+            ("version", struct.unpack_from("<8s", master_block_data, 0x30)[0]),
+            ("capacity", struct.unpack_from("<Q", master_block_data, 0x48)[0]),
+            ("offset_system_logs", struct.unpack_from("<Q", master_block_data, 0x60)[0]),
+            ("size_system_logs", struct.unpack_from("<Q", master_block_data, 0x68)[0]),
+            ("offset_video_area", struct.unpack_from("<Q", master_block_data, 0x78)[0]),
+            ("size_data_block", struct.unpack_from("<Q", master_block_data, 0x88)[0]),
+            ("total_data_blocks", struct.unpack_from("<I", master_block_data, 0x90)[0]),
+            ("offset_hibtree1", struct.unpack_from("<Q", master_block_data, 0x98)[0]),
+            ("size_hibtree1", struct.unpack_from("<I", master_block_data, 0xA0)[0]),
+            ("offset_hibtree2", struct.unpack_from("<Q", master_block_data, 0xA8)[0]),
+            ("size_hibtree2", struct.unpack_from("<I", master_block_data, 0xB0)[0]),
+            ("time_system_init", struct.unpack_from("<Q", master_block_data, 0xF0)[0]),
+        )
+
+        return MasterBlock(*fields)
+
+    except struct.error as e:
+        raise ValueError(f"Invalid file format: {e}") from e
 
 
 def parse_hbt_entry(data, offset) -> Optional[HIKBTREEEntry]:
